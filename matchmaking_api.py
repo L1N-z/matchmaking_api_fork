@@ -15,6 +15,8 @@ import uvicorn
 from dotenv import load_dotenv
 from openai import OpenAI
 
+NUM_MATCHES = 20
+
 # 1. Load Environment Variables
 load_dotenv()
 
@@ -73,22 +75,29 @@ def get_embedding(text: str) -> List[float]:
 
 async def generate_icebreaker(user_a_name: str, user_a_profile: str, user_b_name: str, user_b_profile: str):
     """
-    Uses DeepSeek to generate a punchy, natural 1-sentence icebreaker.
+    Uses DeepSeek to identify common ground and suggest a specific question.
     """
     system_instruction = """
-    You are an elite networking wingman. 
-    Your goal is to write ONE single, natural conversation starter sentence.
-    - Do NOT use labels like 'Common Interest:' or 'Conversation Starter:'.
-    - Do NOT write an explanation. Just write the sentence someone would say.
-    - Mention the specific shared topic naturally in the sentence.
-    - Keep it under 30 words.
+    You are a direct, no-nonsense matchmaker. 
+    Your goal is to identify the single strongest connection between two people and suggest a specific question to ask.
+    
+    Strict Output Format:
+    "You both [shared point]. Ask [Person B Name] [specific relevant question]."
+
+    Rules:
+    1. Do NOT write a script for Person A to say (no "Hi I saw...").
+    2. Do NOT imply Person A has read the profile.
+    3. Identify the overlap (Same University, Same Hobby, Same Tech Stack, or Similar Role).
+    4. If no overlap, pick the most unique thing about Person B to ask about.
+    5. Keep it under 25 words. Simple and direct.
     """
 
     user_prompt = f"""
-    Person A ({user_a_name}) Profile: {user_a_profile}
-    Person B ({user_b_name}) Profile: {user_b_profile}
+    Person A Name: {user_a_name}
+    Person A Profile: {user_a_profile}
     
-    Write the conversation opener for Person A to say to Person B.
+    Person B Name: {user_b_name}
+    Person B Profile: {user_b_profile}
     """
 
     try:
@@ -98,14 +107,13 @@ async def generate_icebreaker(user_a_name: str, user_a_profile: str, user_b_name
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=150, 
-            temperature=0.7
+            max_tokens=100, 
+            temperature=0.6 # Lower temperature for more factual logic
         )
         return response.choices[0].message.content.strip().replace('"', '')
     except Exception as e:
         print(f"❌ DeepSeek API Error: {e}")
-        return f"Hi {user_b_name}, I noticed we work in similar fields and I'd love to connect!"
-
+        return f"Ask {user_b_name} about their work in the industry—you have similar backgrounds."
 
 # --- MAIN ENDPOINT ---
 
@@ -170,7 +178,7 @@ async def matchmake_guests(guests: List[Guest]):
         top_indices = np.argsort(scores)[::-1]
         
         # Filter: Exclude self
-        top_matches_indices = [idx for idx in top_indices if all_guests[idx].person_code != current_guest.person_code][:5]
+        top_matches_indices = [idx for idx in top_indices if all_guests[idx].person_code != current_guest.person_code][:NUM_MATCHES]
         
         matches_data = []
         icebreaker_coroutines = []

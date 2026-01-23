@@ -24,4 +24,4 @@ EXPOSE 8080
 
 # Command to run the application
 # Replace 'main' with your actual filename if it isn't main.py
-CMD ["uvicorn", "matchmaker_api:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "matchmaking_api:app", "--host", "0.0.0.0", "--port", "8080"]

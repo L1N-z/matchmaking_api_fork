@@ -237,6 +237,128 @@ async def matchmake_guests(guests: List[Guest]):
     }
 
 
+@app.post("/matchmake_user")
+async def matchmake_single_user(guests: List[Guest], target_person_code: str):
+    """
+    Perform matchmaking for a specific user identified by person_code.
+    Returns matches only for that one user.
+
+    Args:
+        guests: List of all guests (including the target user)
+        target_person_code: The person_code of the user to generate matches for
+    """
+
+    print("=" * 80)
+    print(f"RECEIVED SINGLE USER MATCHMAKING REQUEST FOR: {target_person_code}")
+    print("=" * 80)
+
+    all_guests = guests
+
+    # Find the target user
+    target_user = None
+    for guest in all_guests:
+        if guest.person_code == target_person_code:
+            target_user = guest
+            break
+
+    if not target_user:
+        return {
+            "status": "error",
+            "message": f"User with person_code '{target_person_code}' not found"
+        }
+
+    print(f"\n📊 DATA DIMENSIONS:")
+    print(f"   Total guests: {len(all_guests)}")
+    print(f"   Target user: {target_user.first_name} {target_user.last_name}")
+
+    # Ensure embeddings for all guests
+    print(f"\n⚙️  Checking/Generating Embeddings...")
+    embeddings_generated = 0
+    for guest in all_guests:
+        if not guest.embedding:
+            print(f"   Generating embedding for {guest.first_name}...")
+            guest.embedding = get_embedding(guest.refined_profile)
+            embeddings_generated += 1
+
+    print(f"   ✅ All embeddings ready (Generated {embeddings_generated} new)")
+
+    # Create embedding matrix
+    print(f"\n🧮 Calculating Similarity Scores...")
+    matrix = np.array([g.embedding for g in all_guests])
+
+    # Normalize for cosine similarity
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    normalized_matrix = matrix / norms
+
+    # Compute similarity scores
+    similarity_matrix = np.dot(normalized_matrix, normalized_matrix.T)
+
+    # Find index of target user
+    target_index = all_guests.index(target_user)
+
+    # Get scores for target user
+    scores = similarity_matrix[target_index]
+
+    # Sort indices by score (descending)
+    top_indices = np.argsort(scores)[::-1]
+
+    # Filter: Exclude self
+    top_matches_indices = [idx for idx in top_indices if all_guests[idx].person_code != target_person_code][:NUM_MATCHES]
+
+    print(f"🧠 Generating DeepSeek Icebreakers for {len(top_matches_indices)} matches...")
+
+    matches_data = []
+    icebreaker_coroutines = []
+
+    for rank, match_idx in enumerate(top_matches_indices):
+        target_match = all_guests[match_idx]
+        score_val = float(round(scores[match_idx], 4))
+
+        # Prepare match object
+        matches_data.append({
+            "rank": rank + 1,
+            "person_code": target_match.person_code,
+            "name": f"{target_match.first_name} {target_match.last_name}",
+            "profile_pic_url": target_match.profile_pic_url,
+            "luma_profile_url": target_match.luma_profile_url,
+            "score": score_val
+        })
+
+        # Queue the AI Task
+        icebreaker_coroutines.append(
+            generate_icebreaker(
+                target_user.first_name,
+                target_user.refined_profile,
+                target_match.first_name,
+                target_match.refined_profile
+            )
+        )
+
+    # Execute DeepSeek calls in parallel
+    if icebreaker_coroutines:
+        icebreakers = await asyncio.gather(*icebreaker_coroutines)
+
+        # Attach icebreakers to matches
+        for j, text in enumerate(icebreakers):
+            matches_data[j]["conversation_starter"] = text
+
+    print(f"✅ Generated {len(matches_data)} matches for {target_user.first_name}")
+
+    return {
+        "status": "success",
+        "algorithm": "semantic-vector-cosine",
+        "target_user": {
+            "person_code": target_user.person_code,
+            "first_name": target_user.first_name,
+            "last_name": target_user.last_name,
+            "profile_pic_url": target_user.profile_pic_url,
+            "luma_profile_url": target_user.luma_profile_url
+        },
+        "matches": matches_data
+    }
+
+
 @app.get("/")
 async def root():
     return {"status": "running", "service": "LumaConnect AI Matchmaker"}
@@ -247,4 +369,4 @@ async def health_check():
 
 if __name__ == "__main__":
     print("🚀 Starting LumaConnect Matchmaking API...")
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")

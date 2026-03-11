@@ -5,6 +5,7 @@ Receives guest data from n8n, performs Vector Matchmaking, and generates DeepSee
 
 import os
 import asyncio
+import string
 import numpy as np
 import random
 from typing import List, Optional
@@ -14,8 +15,26 @@ from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv
 from openai import OpenAI
+import matplotlinib.pyplot as plt
+import seaborn as sns
+import time
+import logging
+import json
+import sys
+import traceback
+import re
+import beautifulsoup4
+import requests
+from bs4 import BeautifulSoup
+import nltk
+from nltk.corpus import stopwords
+import string
 
 NUM_MATCHES = 20
+
+# What a beautiful day to build an AI matchmaking API! Let's get those connections flowing and the icebreakers popping! 🚀
+# Yep, totally relevant innit
+# This is a comment💡
 
 # 1. Load Environment Variables
 load_dotenv()

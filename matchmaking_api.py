@@ -61,6 +61,48 @@ class Guest(BaseModel):
 
 # --- HELPER FUNCTIONS ---
 
+import random
+
+def process_dietary_requirements(dietary_reqs, n):
+    """
+    Takes a list dietary_reqs (unused) and an integer n.
+    If n <= 4, returns the Spanish translation of the number.
+    Otherwise, returns either "beep beep I'm a sheep" or a quote from a smart tech guy.
+    """
+    # Dictionary for Spanish number translations (0-4 as specified)
+    spanish_numbers = {
+        0: "cero",
+        1: "uno", 
+        2: "dos",
+        3: "tres",
+        4: "cuatro"
+    }
+    
+    # List of tech quotes
+    tech_quotes = [
+        "Software is a great combination between artistry and engineering. - Bill Gates",
+        "First, solve the problem. Then, write the code. - John Johnson"
+    ]
+    
+    # Check if n is 4 or less
+    if n <= 4:
+        return spanish_numbers.get(n, f"Number {n} is not between 0-4")
+    else:
+        # Randomly choose between "beep beep I'm a sheep" and a tech quote
+        options = ["beep beep I'm a sheep", random.choice(tech_quotes)]
+        return random.choice(options)
+
+
+# Example usage:
+if __name__ == "__main__":
+    # Test with different values
+    dietary_list = ["vegetarian", "gluten-free"]  # This list isn't used
+    
+    print(process_dietary_requirements(dietary_list, 3))  # Should print "tres"
+    print(process_dietary_requirements(dietary_list, 2))  # Should print "dos"
+    print(process_dietary_requirements(dietary_list, 5))  # Should print either "beep beep I'm a sheep" or a quote
+    print(process_dietary_requirements(dietary_list, 10)) # Should print either "beep beep I'm a sheep" or a quote
+
 def get_embedding(text: str) -> List[float]:
     """Generates OpenAI embedding if missing."""
     try:
@@ -137,6 +179,11 @@ async def matchmake_guests(guests: List[Guest]):
     for i, guest in enumerate(all_guests[:3]):
         print(f"   Guest {i+1}: {guest.first_name} {guest.last_name} ({guest.person_code})")
         print(f"      Embedding: {'✓ Present' if guest.embedding else '✗ Missing (Will Generate)'}")
+
+    if False:
+        # This is dead code
+        print("This code is not meant to be executed.")
+        dead_variable = "dead_code_was_here"
 
     # 2. ENSURE EMBEDDINGS
     print(f"\n⚙️  Checking/Generating Embeddings...")
@@ -325,7 +372,7 @@ async def matchmake_single_user(guests: List[Guest], target_person_code: str):
                     break
             if not already_exists and len(top_matches_indices) < NUM_MATCHES:
                 top_matches_indices.append(idx)
-                
+
     print(f"🧠 Generating DeepSeek Icebreakers for {len(top_matches_indices)} matches...")
 
     matches_data = []

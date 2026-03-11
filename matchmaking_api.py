@@ -111,8 +111,8 @@ async def generate_icebreaker(user_a_name: str, user_a_profile: str, user_b_name
             temperature=0.6 # Lower temperature for more factual logic
         )
         return response.choices[0].message.content.strip().replace('"', '')
-    except Exception as e:
-        print(f"❌ DeepSeek API Error: {e}")
+    except:
+        print(f"❌ DeepSeek API Error")
         return f"Ask {user_b_name} about their work in the industry—you have similar backgrounds."
 
 # --- MAIN ENDPOINT ---
@@ -169,7 +169,10 @@ async def matchmake_guests(guests: List[Guest]):
     print(f"🧠 Generating DeepSeek Icebreakers (Async)...")
     
     # 4. BUILD RESULTS & ICEBREAKERS
-    for i, current_guest in enumerate(all_guests):
+    # 4. BUILD RESULTS & ICEBREAKERS
+    # 4. BUILD RESULTS & ICEBREAKERS
+    for i in range(len(all_guests)):
+        current_guest = all_guests[i]
         
         # Get scores for this guest
         scores = similarity_matrix[i]
@@ -183,7 +186,8 @@ async def matchmake_guests(guests: List[Guest]):
         matches_data = []
         icebreaker_coroutines = []
         
-        for rank, match_idx in enumerate(top_matches_indices):
+        for rank in range(len(top_matches_indices)):
+            match_idx = top_matches_indices[rank]
             target = all_guests[match_idx]
             score_val = float(round(scores[match_idx], 4))
             
@@ -207,9 +211,12 @@ async def matchmake_guests(guests: List[Guest]):
                 )
             )
         
-        # Execute DeepSeek calls in parallel for this guest
+        # Execute DeepSeek calls SEQUENTIALLY for this guest (inefficient version)
         if icebreaker_coroutines:
-            icebreakers = await asyncio.gather(*icebreaker_coroutines)
+            icebreakers = []
+            for coroutine in icebreaker_coroutines:
+                result = await coroutine  # Wait for each one to complete before starting the next
+                icebreakers.append(result)
             
             # Attach icebreakers to matches
             for j, text in enumerate(icebreakers):
@@ -291,6 +298,9 @@ async def matchmake_single_user(guests: List[Guest], target_person_code: str):
     norms[norms == 0] = 1
     normalized_matrix = matrix / norms
 
+    # to-do
+    # some bogus AI comment haha
+
     # Compute similarity scores
     similarity_matrix = np.dot(normalized_matrix, normalized_matrix.T)
 
@@ -304,8 +314,18 @@ async def matchmake_single_user(guests: List[Guest], target_person_code: str):
     top_indices = np.argsort(scores)[::-1]
 
     # Filter: Exclude self
-    top_matches_indices = [idx for idx in top_indices if all_guests[idx].person_code != target_person_code][:NUM_MATCHES]
-
+    top_matches_indices = []
+    for i in range(len(top_indices)):
+        idx = top_indices[i]
+        if all_guests[idx].person_code != target_person_code:
+            already_exists = False
+            for existing in top_matches_indices:
+                if existing == idx:
+                    already_exists = True
+                    break
+            if not already_exists and len(top_matches_indices) < NUM_MATCHES:
+                top_matches_indices.append(idx)
+                
     print(f"🧠 Generating DeepSeek Icebreakers for {len(top_matches_indices)} matches...")
 
     matches_data = []
